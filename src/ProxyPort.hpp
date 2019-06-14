@@ -27,6 +27,7 @@ class InputProxyPort;
 class ProxyPortBase
 {
 protected:
+    RTT::DataFlowInterface df;
     std::string getFreePortName(RTT::TaskContext *clientTask, RTT::base::PortInterface *portIf);
 };
 
@@ -37,6 +38,7 @@ class InputProxyPort : public ProxyPortBase
     friend class OutputProxyPort< RTT::extras::ReadOnlyPointer<T> >;
     RTT::base::InputPortInterface *port;
     RTT::OutputPort<T> *writer;
+
 public:
     InputProxyPort(RTT::base::PortInterface *iface): port(dynamic_cast<RTT::base::InputPortInterface *>(iface)), writer(NULL)
     {
@@ -73,9 +75,7 @@ public:
             if(!writer)
                 throw std::runtime_error("Error, could not get writer for port " + port->getName()); 
 
-            RTT::TaskContext *clientTask = OrocosHelpers::getClientTask();
-            writer->setName(getFreePortName(clientTask, port));
-            clientTask->addPort(*writer);
+            df.addPort("writer", *writer);
             if(!port->connectTo(writer, policy))
                 throw std::runtime_error("InputProxyPort::getWriter(): Error could not connect writer to port " + port->getName() + " of task " + port->getInterface()->getOwner()->getName());
         }
@@ -87,9 +87,7 @@ public:
         if(writer)
         {
             writer->disconnect();
-            RTT::TaskContext *clientTask = OrocosHelpers::getClientTask();
-            //this call should also delete the writer
-            clientTask->ports()->removePort(writer->getName());
+            df.removePort("writer");
             writer = NULL;
         }
     }
@@ -155,9 +153,8 @@ public:
             reader = dynamic_cast<RTT::InputPort<T> *>(port->antiClone());
             if(!reader)
                 throw std::runtime_error("Error, could not get reader for port " + port->getName()); 
-            RTT::TaskContext *clientTask = OrocosHelpers::getClientTask();
-            reader->setName(getFreePortName(clientTask, port));
-            clientTask->addPort(*reader);
+
+            df.addPort("reader", *reader);
             if(!reader->connectTo(port, policy))
                 throw std::runtime_error("InputProxyPort::getReader(): Error could not connect reader to port " + port->getName() + " of task " + port->getInterface()->getOwner()->getName());
         }        
@@ -169,9 +166,7 @@ public:
         if(reader)
         {
             reader->disconnect();
-            RTT::TaskContext *clientTask = OrocosHelpers::getClientTask();
-            //this call should also delete the reader
-            clientTask->ports()->removePort(reader->getName());
+            df.removePort("reader");
             reader = NULL;
         }
     }
